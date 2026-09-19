@@ -1,11 +1,17 @@
-import type { ModelConfig, RouterConfig } from "./types.js";
+import { normalizeCosts } from "./core/normalise.js";
+import type { InternalModel, ModelConfig, RouterConfig } from "./types.js";
 
 export class Router {
-    private config: RouterConfig;
+    private models: InternalModel[]
 
     constructor(config: RouterConfig) {
-        this.config = config;
         this.validateModels(config.models)
+        const normalizedCosts = normalizeCosts(config.models.map(model => model.cost))
+        this.models = config.models.map((model, i) => ({
+            ...model,
+            normalizedCost: normalizedCosts[i]!
+        }));
+        console.log(this.models)
     }
 
     private validateModels(models: ModelConfig[]) {

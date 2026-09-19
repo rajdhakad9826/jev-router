@@ -4,6 +4,10 @@ export interface ModelConfig {
     description: string;
 }
 
+export type InternalModel = ModelConfig & {
+    normalizedCost: number;
+};
+
 export interface RouterConfig {
     models: ModelConfig[];
 }
