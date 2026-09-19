@@ -1,6 +1,6 @@
 # jev-router
 
-jev-router selects an LLM based on the **expected capability required by a query** while considering model cost.
+jev-router selects an LLM based on the expected capability required by a query while considering model cost.
 
 ## Setup
  
