@@ -12,6 +12,9 @@ export class Router {
         if (models.length < 2)
             throw new Error("Router requires at least 2 models");
 
+        if (models.length > 10)
+            throw new Error("Router supports at most 10 models (Jev's Score primitive limit)");
+
         const names = new Set<string>();
         for (let i = 0; i < models.length; i++) {
             let model = models[i]!;
