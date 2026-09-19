@@ -1,8 +1,10 @@
 import { normalizeCosts } from "./core/normalise.js";
 import type { InternalModel, ModelConfig, RouterConfig } from "./types.js";
+import { JevClassifier } from "./jev/classifier.js";
 
 export class Router {
     private models: InternalModel[]
+    private classifier: JevClassifier
 
     constructor(config: RouterConfig) {
         this.validateModels(config.models)
@@ -11,7 +13,13 @@ export class Router {
             ...model,
             normalizedCost: normalizedCosts[i]!
         }));
+        this.classifier = new JevClassifier()
         console.log(this.models)
+    }
+
+    public async route(query: string) {
+        const probabilities = await this.classifier.classify(query, this.models);
+        return probabilities
     }
 
     private validateModels(models: ModelConfig[]) {
