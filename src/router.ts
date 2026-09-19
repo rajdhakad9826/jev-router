@@ -1,7 +1,8 @@
 import { normalizeCosts } from "./core/normalise.js";
-import type { InternalModel, ModelConfig, RouterConfig } from "./types.js";
+import type { InternalModel, ModelConfig, RouterConfig, RouterResult } from "./types.js";
 import { JevClassifier } from "./jev/classifier.js";
 import { buildLossMatrix, calculateExpectedLoss } from "./core/loss.js";
+import { selectBestTier } from "./core/selection.js";
 
 export class Router {
     private models: InternalModel[]
@@ -20,18 +21,18 @@ export class Router {
         this.lossMatrix = buildLossMatrix(this.models, this.lambda)
     }
 
-    public async route(query: string) {
+    public async route(query: string): Promise<RouterResult> {
         const probabilities = await this.classifier.classify(query, this.models);
         const expectedLosses = calculateExpectedLoss(probabilities, this.lossMatrix)
-        let bestModelIndex = expectedLosses.indexOf(Math.min(...expectedLosses))
-        let bestModel = this.models[bestModelIndex]!.name
+        let bestModelIndex = selectBestTier(expectedLosses)
+        let bestModel = this.models[bestModelIndex]!
 
         let resultProbabilities: Record<string, number> = {};
         for (let i = 0; i < this.models.length; i++)
             resultProbabilities[this.models[i]!.name] = probabilities[i]!
 
         return {
-            model: bestModel,
+            model: bestModel.name,
             tier: bestModelIndex,
             probabilities: resultProbabilities
         }

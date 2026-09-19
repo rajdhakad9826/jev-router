@@ -11,3 +11,9 @@ export type InternalModel = ModelConfig & {
 export interface RouterConfig {
     models: ModelConfig[];
 }
+
+export interface RouterResult {
+    model: string;
+    tier: number;
+    probabilities: Record<string, number>;
+}
