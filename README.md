@@ -2,6 +2,10 @@
 
 jev-router selects an LLM based on the expected capability required by a query while considering model cost.
 
+```bash
+npm install jev-model-router
+```
+
 ## Setup
  
 jev-router needs a TypeSafe API key to call Jev. Get one from the [TypeSafe console](https://console.typesafe.ai/), then set it as an environment variable before constructing the router:
