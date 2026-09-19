@@ -1,10 +1,13 @@
 import { normalizeCosts } from "./core/normalise.js";
 import type { InternalModel, ModelConfig, RouterConfig } from "./types.js";
 import { JevClassifier } from "./jev/classifier.js";
+import { buildLossMatrix, calculateLoss } from "./core/loss.js";
 
 export class Router {
     private models: InternalModel[]
     private classifier: JevClassifier
+    private lossMatrix: number[][];
+    private lambda = 1;
 
     constructor(config: RouterConfig) {
         this.validateModels(config.models)
@@ -14,7 +17,8 @@ export class Router {
             normalizedCost: normalizedCosts[i]!
         }));
         this.classifier = new JevClassifier()
-        console.log(this.models)
+        this.lossMatrix = buildLossMatrix(this.models, this.lambda)
+        console.log(this.lossMatrix)
     }
 
     public async route(query: string) {
