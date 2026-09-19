@@ -4,7 +4,7 @@ const client = new TypeSafeClient();
 
 export class JevClassifier {
 
-    async classify(query: string, models: InternalModel[]) {
+    async classify(query: string, models: InternalModel[]): Promise<number[]> {
         const response = await client.systemOne({
             state: { document: query },
             questions: {
@@ -12,6 +12,6 @@ export class JevClassifier {
             },
         });
 
-        return response.answers.tier.probabilities;
+        return Object.values(response.answers.tier.probabilities);
     }
 }

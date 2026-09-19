@@ -20,3 +20,17 @@ export function buildLossMatrix(models: InternalModel[], lambda: number) {
 
     return lossMatrix
 }
+
+export function calculateExpectedLoss(probabilities: number[], lossMatrix: number[][]): number[] {
+    const expectedLosses: number[] = [];
+    for (let i = 0; i < lossMatrix.length; i++) {
+        let expectedLoss = 0;
+
+        for (let j = 0; j < probabilities.length; j++)
+            expectedLoss += probabilities[j]! * lossMatrix[i]![j]!;
+
+        expectedLosses.push(expectedLoss)
+    }
+
+    return expectedLosses;
+}
