@@ -13,7 +13,8 @@ export class Router {
             throw new Error("Router requires at least 2 models");
 
         const names = new Set<string>();
-        for (const model of models) {
+        for (let i = 0; i < models.length; i++) {
+            let model = models[i]!;
             if (!model.name.trim())
                 throw new Error("Model name cannot be empty");
 
@@ -26,6 +27,14 @@ export class Router {
             if (names.has(model.name))
                 throw new Error(`Duplicate model: ${model.name}`);
 
+            if (i > 0 && model.cost < models[i - 1]!.cost) {
+                console.warn(
+                    `"${model.name}" (cost=${model.cost}) is cheaper than ` +
+                    `"${models[i - 1]!.name}" (cost=${models[i - 1]!.cost}) but listed later. ` +
+                    `Models should be ordered weakest to strongest capability — verify this is intentional if costs don't track capability.`
+                );
+
+            }
             names.add(model.name)
         }
     }
