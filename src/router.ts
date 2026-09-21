@@ -9,18 +9,33 @@ export class Router {
     private threshold!: number;
     private minUpgrade!: number;
     private minDowngrade!: number;
+    private fallbackTierIndex: number | undefined;
 
 
     constructor(config: RouterConfig) {
         this.config = config;
         this.validateModels(config.models)
+        this.fallbackTierIndex = this.resolveFallbackModel(config.fallbackTier, config.models);
         this.mode = config.models.length === 2 ? "binary" : "cascade";
         this.resolveStrategy(config.strategy);
         this.classifier = new JevClassifier()
     }
 
     public async route(query: string): Promise<RouterResult> {
-        const probabilities = await this.classifier.classify(query, this.config.models);
+        let probabilities: number[]
+        try {
+            probabilities = await this.classifier.classify(query, this.config.models);
+        } catch (err) {
+            if (this.fallbackTierIndex === undefined)
+                throw err;
+            const fallbackTier = this.fallbackTierIndex;
+            return {
+                model: this.config.models[fallbackTier]!.name,
+                tier: fallbackTier,
+                probabilities: {},
+                isFallback: true
+            }
+        }
 
         const selectedTier = this.mode === "binary"
             ? selectBinaryTier(probabilities, this.threshold)
@@ -33,7 +48,8 @@ export class Router {
         return {
             model: this.config.models[selectedTier]!.name,
             tier: selectedTier,
-            probabilities: resultProbabilities
+            probabilities: resultProbabilities,
+            isFallback: false
         }
     }
 
@@ -86,6 +102,25 @@ export class Router {
             this.validateProbability(this.minUpgrade, "minUpgradeConfidence");
             this.validateProbability(this.minDowngrade, "minDowngradeConfidence");
         }
+    }
+    private resolveFallbackModel(modelName: string | undefined, models: ModelConfig[]): number | undefined {
+        if (modelName === undefined) {
+            return undefined;
+        }
+
+        if (typeof modelName !== "string" || !modelName.trim()) {
+            throw new Error("fallbackTier must be a non-empty string representing a valid model name");
+        }
+
+        const index = models.findIndex(m => m.name === modelName.trim());
+        if (index === -1) {
+            const available = models.map(m => `"${m.name}"`).join(", ");
+            throw new Error(
+                `Invalid fallbackTier: "${modelName}" not found in configured models. Available: [${available}]`
+            );
+        }
+
+        return index;
     }
 
 }
