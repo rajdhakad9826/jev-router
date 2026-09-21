@@ -1,40 +1,55 @@
-import { normalizeCosts } from "./core/normalise.js";
-import type { InternalModel, ModelConfig, RouterConfig, RouterResult } from "./types.js";
+import type { ModelConfig, RouterConfig, RouterResult, RoutingStrategy } from "./types.js";
 import { JevClassifier } from "./jev/classifier.js";
-import { buildLossMatrix, calculateExpectedLoss } from "./core/loss.js";
-import { selectBestTier } from "./core/selection.js";
+import { selectBinaryTier, selectCascadeTier } from "./core/selection.js";
 
 export class Router {
-    private models: InternalModel[]
+    private config: RouterConfig;
     private classifier: JevClassifier
-    private lossMatrix: number[][];
-    private lambda = 1;
+    private mode: "binary" | "cascade";
+    private threshold!: number;
+    private minUpgrade!: number;
+    private minDowngrade!: number;
+    private fallbackTierIndex: number | undefined;
+
 
     constructor(config: RouterConfig) {
+        this.config = config;
         this.validateModels(config.models)
-        const normalizedCosts = normalizeCosts(config.models.map(model => model.cost))
-        this.models = config.models.map((model, i) => ({
-            ...model,
-            normalizedCost: normalizedCosts[i]!
-        }));
+        this.fallbackTierIndex = this.resolveFallbackModel(config.fallbackTier, config.models);
+        this.mode = config.models.length === 2 ? "binary" : "cascade";
+        this.resolveStrategy(config.strategy);
         this.classifier = new JevClassifier()
-        this.lossMatrix = buildLossMatrix(this.models, this.lambda)
     }
 
     public async route(query: string): Promise<RouterResult> {
-        const probabilities = await this.classifier.classify(query, this.models);
-        const expectedLosses = calculateExpectedLoss(probabilities, this.lossMatrix)
-        let bestModelIndex = selectBestTier(expectedLosses)
-        let bestModel = this.models[bestModelIndex]!
+        let probabilities: number[]
+        try {
+            probabilities = await this.classifier.classify(query, this.config.models);
+        } catch (err) {
+            if (this.fallbackTierIndex === undefined)
+                throw err;
+            const fallbackTier = this.fallbackTierIndex;
+            return {
+                model: this.config.models[fallbackTier]!.name,
+                tier: fallbackTier,
+                probabilities: {},
+                isFallback: true
+            }
+        }
+
+        const selectedTier = this.mode === "binary"
+            ? selectBinaryTier(probabilities, this.threshold)
+            : selectCascadeTier(probabilities, this.minUpgrade, this.minDowngrade);
 
         let resultProbabilities: Record<string, number> = {};
-        for (let i = 0; i < this.models.length; i++)
-            resultProbabilities[this.models[i]!.name] = probabilities[i]!
+        for (let i = 0; i < this.config.models.length; i++)
+            resultProbabilities[this.config.models[i]!.name] = probabilities[i]!
 
         return {
-            model: bestModel.name,
-            tier: bestModelIndex,
-            probabilities: resultProbabilities
+            model: this.config.models[selectedTier]!.name,
+            tier: selectedTier,
+            probabilities: resultProbabilities,
+            isFallback: false
         }
     }
 
@@ -42,8 +57,8 @@ export class Router {
         if (models.length < 2)
             throw new Error("Router requires at least 2 models");
 
-        if (models.length > 10)
-            throw new Error("Router supports at most 10 models (Jev's Score primitive limit)");
+        if (models.length > 3)
+            throw new Error("Router supports at most 3 models");
 
         const names = new Set<string>();
         for (let i = 0; i < models.length; i++) {
@@ -51,24 +66,61 @@ export class Router {
             if (!model.name.trim())
                 throw new Error("Model name cannot be empty");
 
-            if (!Number.isFinite(model.cost) || model.cost < 0)
-                throw new Error(`Invalid cost for model: ${model.name}`);
-
             if (!model.description.trim())
                 throw new Error(`Description required for model: ${model.name}`);
 
             if (names.has(model.name))
                 throw new Error(`Duplicate model: ${model.name}`);
 
-            if (i > 0 && model.cost < models[i - 1]!.cost) {
-                console.warn(
-                    `"${model.name}" (cost=${model.cost}) is cheaper than ` +
-                    `"${models[i - 1]!.name}" (cost=${models[i - 1]!.cost}) but listed later. ` +
-                    `Models should be ordered weakest to strongest capability — verify this is intentional if costs don't track capability.`
-                );
-
-            }
             names.add(model.name)
         }
     }
+
+    private validateProbability(value: number, name: string) {
+        if (!Number.isFinite(value) || value < 0 || value > 1)
+            throw new Error(`${name} must be between 0 and 1, got: ${value}`);
+    }
+
+
+    private resolveStrategy(strategy: RoutingStrategy | undefined) {
+        if (this.mode === "binary") {
+            if (strategy?.minUpgradeConfidence !== undefined || strategy?.minDowngradeConfidence !== undefined)
+                throw new Error(
+                    "minUpgradeConfidence/minDowngradeConfidence only apply to 3-model routers. Use `threshold` for a 2-model router."
+                );
+
+            this.threshold = strategy?.threshold ?? 0.5;
+            this.validateProbability(this.threshold, "threshold");
+        } else {
+            if (strategy?.threshold !== undefined)
+                throw new Error(
+                    "`threshold` only applies to 2-model routers. Use minUpgradeConfidence/minDowngradeConfidence for a 3-model router."
+                );
+
+            this.minUpgrade = strategy?.minUpgradeConfidence ?? 0.4;
+            this.minDowngrade = strategy?.minDowngradeConfidence ?? 0.6;
+            this.validateProbability(this.minUpgrade, "minUpgradeConfidence");
+            this.validateProbability(this.minDowngrade, "minDowngradeConfidence");
+        }
+    }
+    private resolveFallbackModel(modelName: string | undefined, models: ModelConfig[]): number | undefined {
+        if (modelName === undefined) {
+            return undefined;
+        }
+
+        if (typeof modelName !== "string" || !modelName.trim()) {
+            throw new Error("fallbackTier must be a non-empty string representing a valid model name");
+        }
+
+        const index = models.findIndex(m => m.name === modelName.trim());
+        if (index === -1) {
+            const available = models.map(m => `"${m.name}"`).join(", ");
+            throw new Error(
+                `Invalid fallbackTier: "${modelName}" not found in configured models. Available: [${available}]`
+            );
+        }
+
+        return index;
+    }
+
 }
