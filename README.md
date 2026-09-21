@@ -6,10 +6,6 @@ jev-model-router routes each query to the cheapest LLM tier that can actually ha
 npm install jev-model-router
 ```
 
-```bash
-npm install jev-model-router
-```
-
 ## Setup
 
 jev-model-router needs a TypeSafe API key to call Jev. Get one from the [TypeSafe console](https://console.typesafe.ai/), then set it as an environment variable before constructing the router:
