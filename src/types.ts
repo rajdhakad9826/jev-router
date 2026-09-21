@@ -8,6 +8,7 @@ export type InternalModel = ModelConfig & {
 };
 
 export interface RoutingStrategy {
+    threshold?: number;
     minUpgradeConfidence?: number;
     minDowngradeConfidence?: number;
 }
