@@ -1,6 +1,5 @@
 export interface ModelConfig {
     name: string;
-    cost: number;
     description: string;
 }
 
