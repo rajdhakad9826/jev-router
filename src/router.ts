@@ -1,40 +1,33 @@
-import { normalizeCosts } from "./core/normalise.js";
-import type { InternalModel, ModelConfig, RouterConfig, RouterResult } from "./types.js";
+import type { ModelConfig, RouterConfig, RouterResult } from "./types.js";
 import { JevClassifier } from "./jev/classifier.js";
-import { buildLossMatrix, calculateExpectedLoss } from "./core/loss.js";
 import { selectBestTier } from "./core/selection.js";
 
 export class Router {
-    // private models: InternalModel[]
+    private config: RouterConfig;
     private classifier: JevClassifier
-    // private lossMatrix: number[][];
-    // private lambda = 1;
+    private minUpgrade: number;
+    private minDowngrade: number;
 
     constructor(config: RouterConfig) {
+        this.config = config;
         this.validateModels(config.models)
-        // const normalizedCosts = normalizeCosts(config.models.map(model => model.cost))
-        // this.models = config.models.map((model, i) => ({
-        //     ...model,
-        //     normalizedCost: normalizedCosts[i]!
-        // }));
+        this.minUpgrade = config.strategy?.minUpgradeConfidence ?? 0.30;
+        this.minDowngrade = config.strategy?.minDowngradeConfidence ?? 0.60;
         this.classifier = new JevClassifier()
-        // this.lossMatrix = buildLossMatrix(this.models, this.lambda)
     }
 
     public async route(query: string): Promise<RouterResult> {
-        // const probabilities = await this.classifier.classify(query, this.models);
-        // const expectedLosses = calculateExpectedLoss(probabilities, this.lossMatrix)
-        // let bestModelIndex = selectBestTier(expectedLosses)
-        // let bestModel = this.models[bestModelIndex]!
+        const probabilities = await this.classifier.classify(query, this.config.models);
+        const selectedTier = selectBestTier(probabilities, this.minUpgrade, this.minDowngrade)
 
-        // let resultProbabilities: Record<string, number> = {};
-        // for (let i = 0; i < this.models.length; i++)
-        //     resultProbabilities[this.models[i]!.name] = probabilities[i]!
+        let resultProbabilities: Record<string, number> = {};
+        for (let i = 0; i < this.config.models.length; i++)
+            resultProbabilities[this.config.models[i]!.name] = probabilities[i]!
 
         return {
-            model: "",
-            tier: 1,
-            probabilities: { "1": 0.1, "2": 0.9, "3": 0 }
+            model: this.config.models[selectedTier]!.name,
+            tier: selectedTier,
+            probabilities: resultProbabilities
         }
     }
 
