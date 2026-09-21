@@ -1,6 +1,6 @@
 import type { ModelConfig, RouterConfig, RouterResult, RoutingStrategy } from "./types.js";
 import { JevClassifier } from "./jev/classifier.js";
-import { selectBestTier } from "./core/selection.js";
+import { selectBinaryTier, selectCascadeTier } from "./core/selection.js";
 
 export class Router {
     private config: RouterConfig;
@@ -21,7 +21,10 @@ export class Router {
 
     public async route(query: string): Promise<RouterResult> {
         const probabilities = await this.classifier.classify(query, this.config.models);
-        const selectedTier = selectBestTier(probabilities, this.minUpgrade, this.minDowngrade)
+
+        const selectedTier = this.mode === "binary"
+            ? selectBinaryTier(probabilities, this.threshold)
+            : selectCascadeTier(probabilities, this.minUpgrade, this.minDowngrade);
 
         let resultProbabilities: Record<string, number> = {};
         for (let i = 0; i < this.config.models.length; i++)
