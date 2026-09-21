@@ -81,8 +81,8 @@ export class Router {
                     "`threshold` only applies to 2-model routers. Use minUpgradeConfidence/minDowngradeConfidence for a 3-model router."
                 );
 
-            this.minUpgrade = strategy?.minUpgradeConfidence ?? 0.5;
-            this.minDowngrade = strategy?.minDowngradeConfidence ?? 0.3;
+            this.minUpgrade = strategy?.minUpgradeConfidence ?? 0.4;
+            this.minDowngrade = strategy?.minDowngradeConfidence ?? 0.6;
             this.validateProbability(this.minUpgrade, "minUpgradeConfidence");
             this.validateProbability(this.minDowngrade, "minDowngradeConfidence");
         }
