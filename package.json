@@ -1,6 +1,6 @@
 {
   "name": "jev-model-router",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Cost-aware LLM router that picks the cheapest model capable of handling a query, using TypeSafe's Jev for fast classification instead of an LLM call.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
