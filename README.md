@@ -25,7 +25,11 @@ const router = new Router({
         { name: "claude-3-5-sonnet", description: "Standard software engineering and logic puzzles" },
         { name: "claude-3-5-opus", description: "Highly complex architectural design and deep reasoning" }
     ],
-    fallbackTier: "claude-3-5-sonnet"
+    strategy: {
+        minUpgradeConfidence: 0.4,
+        minDowngradeConfidence: 0.6
+    },
+    fallbackTier: "claude-3-5-sonnet",
 });
 
 const result = await router.route(
